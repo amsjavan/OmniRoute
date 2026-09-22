@@ -316,6 +316,25 @@ export function normalizeCursorModelId(modelId: string): string {
 // Grok (`cursor-grok-*` / legacy `grok-*`) follows the Claude-style `effort`
 // parameter. Without the split, ids like `cursor-grok-4.5-high` return empty
 // turns (same symptom as #7289). Combined `-high-fast` is supported.
+
+// Cursor AvailableModels can publish flattened ids for these families.  They
+// are valid wire model ids as-is; splitting their final effort/sizing token
+// makes Cursor reject the base id as AI Model Not Found when no live catalog
+// snapshot is available to the executor.
+function isKnownFlattenedCursorModelId(normalized: string): boolean {
+  return (
+    normalized.startsWith("cursor-grok-") ||
+    normalized.startsWith("claude-fable-5-") ||
+    normalized.startsWith("claude-opus-4-7") ||
+    normalized.startsWith("claude-opus-4-8") ||
+    normalized.startsWith("claude-opus-5-thinking-max") ||
+    normalized.startsWith("claude-sonnet-5-max") ||
+    normalized.startsWith("gpt-5.4-") ||
+    normalized.startsWith("gpt-5.5-") ||
+    normalized.startsWith("gpt-5.6-")
+  );
+}
+
 /**
  * If `normalized` starts with `prefix` and ends with one of the known effort
  * suffixes, split it into the base model id plus a `{id: paramId, value}`
@@ -438,7 +457,7 @@ export function resolveRequestedModel(
   const oneMillionContext = resolveOneMillionContextModel(normalized);
   if (oneMillionContext) return oneMillionContext;
   // Live catalog is authoritative for exact ids (flattened effort variants).
-  if (opts?.liveCatalogIds?.has(normalized)) {
+  if (opts?.liveCatalogIds?.has(normalized) || isKnownFlattenedCursorModelId(normalized)) {
     return { modelId: normalized, parameters: [] };
   }
   // Strip the "-fast" suffix and surface it as a parameter — only the composer
