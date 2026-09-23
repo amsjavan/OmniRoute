@@ -118,6 +118,41 @@ test("validateApiKey updates last_used_at for persisted keys", async () => {
   assert.ok(Date.parse(row.last_used_at) > 0, "last_used_at should be an ISO timestamp");
 });
 
+test("validateApiKey rejects unknown keys that were never issued", async () => {
+  await makeKey();
+  assert.equal(await apiKeysDb.validateApiKey("«redacted:sk-…»"), false);
+  assert.equal(await apiKeysDb.validateApiKey("«redacted:sk-…»"), false);
+  assert.equal(await apiKeysDb.validateApiKey("x"), false);
+});
+
+test("validateApiKey rejects empty and nullish keys", async () => {
+  await makeKey();
+  assert.equal(await apiKeysDb.validateApiKey(""), false);
+  assert.equal(await apiKeysDb.validateApiKey(null as unknown as string), false);
+  assert.equal(await apiKeysDb.validateApiKey(undefined as unknown as string), false);
+});
+
+test("validateApiKey rejects a truncated prefix of a real key", async () => {
+  const created = await makeKey();
+  assert.ok(created.key.length > 10, "test key must be long enough to truncate");
+  // A short/partial key (like the 13-char fragment that once slipped through
+  // smoke scripts) must never validate — exact match only.
+  assert.equal(await apiKeysDb.validateApiKey(created.key.slice(0, 13)), false);
+  assert.equal(
+    await apiKeysDb.validateApiKey(created.key.slice(0, Math.floor(created.key.length / 2))),
+    false
+  );
+});
+
+test("validateApiKey rejects a real key with a single-char change", async () => {
+  const created = await makeKey();
+  const last = created.key[created.key.length - 1];
+  const mutated = created.key.slice(0, -1) + (last === "a" ? "b" : "a");
+  assert.equal(await apiKeysDb.validateApiKey(mutated), false);
+  // The original key still validates — the negative cases did not poison state.
+  assert.equal(await apiKeysDb.validateApiKey(created.key), true);
+});
+
 test("getApiKeyMetadata returns proxyId for a key with proxy_id set", async () => {
   const created = await makeKey("proxy-test", "machine-proxy");
 
