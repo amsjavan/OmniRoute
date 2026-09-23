@@ -209,7 +209,7 @@ export default function ConnectionsHeaderToolbar({
               label: providerInfo?.name || providerId,
             })
           }
-          className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+          className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap px-2 py-1 rounded text-xs font-medium transition-all ${
             proxyConfig?.providers?.[providerId]
               ? "bg-amber-500/15 text-amber-500 hover:bg-amber-500/25"
               : "bg-black/[0.03] dark:bg-white/[0.03] text-text-muted/50 hover:text-text-muted hover:bg-black/[0.06] dark:hover:bg-white/[0.06]"
@@ -231,6 +231,7 @@ export default function ConnectionsHeaderToolbar({
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
         {connections.length > 0 && (
           <DistributeProxiesButton
+            size="sm"
             onDistribute={async () => {
               await handleDistributeProxies();
             }}
@@ -241,7 +242,7 @@ export default function ConnectionsHeaderToolbar({
           <button
             onClick={handleBatchTestAll}
             disabled={batchTesting || batchRetesting || !!retestingId}
-            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            className={`flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               batchTesting
                 ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
                 : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/40"
