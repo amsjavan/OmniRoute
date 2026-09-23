@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 
-import messages from "../../i18n/messages/en.json";
+import messages from "@/i18n/messages/en.json";
 
 const cleanupCallbacks: Array<() => void> = [];
 
@@ -36,9 +36,12 @@ describe("DistributeProxiesButton", () => {
   });
 
   async function renderButton(
-    props: Partial<React.ComponentProps<typeof import("./DistributeProxiesButton").default>> = {}
+    props: Partial<
+      React.ComponentProps<typeof import("@/shared/components/DistributeProxiesButton").default>
+    > = {}
   ) {
-    const { default: DistributeProxiesButton } = await import("./DistributeProxiesButton.tsx");
+    const { default: DistributeProxiesButton } =
+      await import("@/shared/components/DistributeProxiesButton.tsx");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {

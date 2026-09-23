@@ -46,7 +46,7 @@ export default function DistributeProxiesButton({
 
   const isDisabled = disabled || state === "distributing";
 
-  const sizeClasses = size === "sm" ? "px-2 py-1 text-[11px]" : "px-3 py-1.5 text-xs";
+  const sizeClasses = size === "sm" ? "h-7 px-2 py-1 text-[11px]" : "px-3 py-1.5 text-xs";
 
   const stateClasses =
     state === "distributing"
@@ -67,7 +67,7 @@ export default function DistributeProxiesButton({
     <button
       onClick={handleClick}
       disabled={isDisabled}
-      className={`flex items-center gap-1.5 rounded-lg font-medium border transition-colors ${sizeClasses} ${stateClasses}`}
+      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg font-medium border transition-colors ${sizeClasses} ${stateClasses}`}
       title={displayLabel}
       aria-label={displayLabel}
     >

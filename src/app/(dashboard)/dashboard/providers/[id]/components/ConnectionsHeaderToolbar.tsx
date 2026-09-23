@@ -241,7 +241,7 @@ export default function ConnectionsHeaderToolbar({
           <button
             onClick={handleBatchTestAll}
             disabled={batchTesting || batchRetesting || !!retestingId}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               batchTesting
                 ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
                 : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/40"
