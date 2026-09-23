@@ -28,6 +28,7 @@ import { resolveQuotaKeyScope } from "@/lib/quota/quotaKey";
 import { isQuotaModelName, parseQuotaModelName } from "@/lib/quota/quotaModelNaming";
 import { buildApiKeyUsageLimitPolicyRejection } from "@/lib/usage/apiKeyUsageLimits";
 import { ALL_COMBOS_ACCESS_RULE } from "@/shared/constants/comboAccess";
+import { isRequireApiKeyEnabled } from "./featureFlags";
 
 // Default to no per-key request cap. API keys can still opt into explicit
 // limits via Settings/API Keys, while provider/account quota controls remain
@@ -696,8 +697,19 @@ export async function enforceApiKeyPolicy(
     };
   }
 
-  // Key not found in DB — skip policy (auth layer handles validation)
+  // Key not found in DB: when REQUIRE_API_KEY is enabled (public gateway),
+  // a presented-but-unknown key must fail closed with 401 — otherwise any
+  // random bearer rides anonymous and burns shared quota unattributed.
+  // When REQUIRE_API_KEY is off (local dev default), keep the old anonymous
+  // behavior so keyless local use keeps working.
   if (!apiKeyInfo) {
+    if (isRequireApiKeyEnabled()) {
+      return {
+        apiKey,
+        apiKeyInfo: null,
+        rejection: errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key"),
+      };
+    }
     return { apiKey, apiKeyInfo: null, rejection: null };
   }
 
