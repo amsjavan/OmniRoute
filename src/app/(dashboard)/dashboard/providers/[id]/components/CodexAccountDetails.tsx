@@ -26,7 +26,7 @@ export default function CodexAccountDetails({ pool }: CodexAccountDetailsProps) 
     fully_limited: t("codexPoolFullyLimited"),
   };
   return (
-    <div className="mt-3 rounded-lg border border-border/60 bg-surface-secondary/30 p-3">
+    <div className="rounded-lg border border-border/60 bg-surface-secondary/30 p-3">
       <div className="mb-2 flex items-center justify-between gap-2 text-xs">
         <span className="font-medium">{t("codexQuotaPools")}</span>
         <span className="text-text-muted">

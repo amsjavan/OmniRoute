@@ -17,6 +17,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next-intl", () => ({
   useTranslations: () => (k: string) => k,
+  useLocale: () => "en",
 }));
 
 // Minimal store stubs
@@ -67,6 +68,37 @@ describe("phase-1d extractions (#3501)", () => {
   });
 
   // ── ConnectionRow ──────────────────────────────────────────────────────────
+
+  function codexPoolFixture(): any {
+    const win = (used: number | null) => ({
+      usage: null,
+      limit: null,
+      resetAt: null,
+      usedPercentage: used,
+    });
+    return {
+      parentConnectionId: "conn-codex",
+      aggregate: { status: "available", limitedChildCount: 0 },
+      children: [
+        {
+          key: { parentConnectionId: "conn-codex", scope: "codex" },
+          unavailable: false,
+          cooldown: { active: false, rateLimitedUntil: null },
+          quota: {
+            exhaustedWindow: null,
+            observedAt: null,
+            windows: { "5h": win(94), "7d": null },
+          },
+        },
+        {
+          key: { parentConnectionId: "conn-codex", scope: "spark" },
+          unavailable: false,
+          cooldown: { active: false, rateLimitedUntil: null },
+          quota: { exhaustedWindow: null, observedAt: null, windows: { "5h": null, "7d": null } },
+        },
+      ],
+    };
+  }
 
   it("ConnectionRow mounts with minimal required props (API-key connection)", () => {
     const conn = {
@@ -142,6 +174,45 @@ describe("phase-1d extractions (#3501)", () => {
     expect(button).not.toBeNull();
     act(() => button.click());
     expect(onToggleQuotaVisibility).toHaveBeenCalledWith(true);
+  });
+
+  it("ConnectionRow renders codex quota pools panel BELOW the action row (no flex-row overlap)", () => {
+    const c = renderComponent(
+      <ConnectionRow
+        connection={{
+          id: "conn-codex",
+          name: "Codex acct",
+          isActive: true,
+          priority: 1,
+          codexAccountPool: codexPoolFixture(),
+        }}
+        isOAuth={true}
+        isCodex={true}
+        isFirst={true}
+        isLast={true}
+        onMoveUp={vi.fn()}
+        onMoveDown={vi.fn()}
+        onToggleActive={vi.fn()}
+        onToggleRateLimit={vi.fn()}
+        onRetest={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+
+    // The quota-pools panel must be a block-level sibling AFTER the row,
+    // never a flex item inside the horizontal action row (that caused the
+    // overlap in the providers page screenshot).
+    const panel = Array.from(c.querySelectorAll("div")).find((d) =>
+      d.textContent?.includes("5h:")
+    ) as HTMLElement | undefined;
+    expect(panel).toBeDefined();
+    const panelStyle = panel!.parentElement;
+    // wrapper is a plain block div, not a flex row
+    expect(panelStyle?.className ?? "").not.toMatch(/(^|\s)flex(\s|$)/);
+    // the top-level row container itself must not be a flex row anymore
+    const root = c.firstElementChild as HTMLElement | null;
+    expect(root?.className ?? "").not.toMatch(/(^|\s)flex(\s|$)/);
   });
 
   it("ConnectionRow renders cooldown badge when rateLimitedUntil is in the future", () => {
