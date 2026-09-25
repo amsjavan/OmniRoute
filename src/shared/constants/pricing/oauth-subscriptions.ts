@@ -34,6 +34,13 @@ export const DEFAULT_PRICING_OAUTH = {
       reasoning: 50.0,
       cache_creation: 12.5,
     },
+    "claude-opus-5-5": {
+      input: 4.0,
+      output: 20.0,
+      cached: 0.2,
+      reasoning: 20.0,
+      cache_creation: 5.0,
+    },
     "claude-opus-5": CLAUDE_OPUS_5_PRICING,
     "claude-opus-4-8": {
       input: 5.0,
@@ -331,6 +338,13 @@ export const DEFAULT_PRICING_OAUTH = {
   antigravity: ANTIGRAVITY_GEMINI_3_7_PRICING,
   agy: ANTIGRAVITY_GEMINI_3_7_PRICING,
   gh: {
+    "claude-opus-5-5": {
+      input: 4.0,
+      output: 20.0,
+      cached: 0.2,
+      reasoning: 20.0,
+      cache_creation: 5.0,
+    },
     "claude-opus-5": CLAUDE_OPUS_5_PRICING,
     "gpt-5": {
       input: 3.0,
