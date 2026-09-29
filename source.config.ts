@@ -5,7 +5,10 @@ export const docs = defineDocs({
   docs: {
     files: [
       "./architecture/**/*.md",
+      "./comparison/**/*.md",
+      "./getting-started/**/*.md",
       "./guides/**/*.md",
+      "./providers/**/*.md",
       "./reference/**/*.md",
       "./frameworks/**/*.md",
       "./routing/**/*.md",

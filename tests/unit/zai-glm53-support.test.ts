@@ -107,6 +107,47 @@ test("zai GLM-5.3 effort aliases rewrite to base model and native effort", () =>
   assert.deepEqual(out.thinking, { type: "enabled", clear_thinking: false });
 });
 
+for (const provider of ["zai", "glm-coding-apikey"]) {
+  for (const model of ["glm-5.3", "glm-5.3-high", "glm-5.3-flash", "glm-5.3-flash-high"]) {
+    test(`${provider} ${model} only omits images when the resolved base model lacks vision`, () => {
+      const executor = new DefaultExecutor(provider);
+      const image = { type: "image_url", image_url: { url: "data:image/png;base64,dGVzdA==" } };
+      const text = {
+        type: "text",
+        text: "Describe this image",
+        cache_control: { type: "ephemeral" },
+      };
+      const messages = [
+        { role: "user", content: [text, image] },
+        { role: "tool", tool_call_id: "lookup-1", content: "Screenshot captured" },
+        // Images nested in a tool result are lifted into a following user turn.
+        { role: "user", content: [image, text] },
+        { role: "user", content: [{ type: "tool_result", content: [text, image] }] },
+        { role: "user", content: "Plain text stays unchanged" },
+      ];
+      const original = structuredClone(messages);
+      const replacement = model.includes("-flash")
+        ? image
+        : { type: "text", text: "[image omitted — model does not support vision]" };
+      const out = executor.transformRequest(
+        model,
+        chatBody({ model, messages }),
+        false,
+        CREDENTIALS
+      ) as Record<string, unknown>;
+
+      assert.deepEqual(out.messages, [
+        { role: "user", content: [text, replacement] },
+        messages[1],
+        { role: "user", content: [replacement, text] },
+        { role: "user", content: [{ type: "tool_result", content: [text, replacement] }] },
+        messages[4],
+      ]);
+      assert.deepEqual(messages, original, "the caller's messages must not be mutated");
+    });
+  }
+}
+
 test("GlmExecutor resolves glm-5.3-flash effort aliases on the OpenAI coding transport", () => {
   const executor = new GlmExecutor("glm");
 

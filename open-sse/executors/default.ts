@@ -114,6 +114,24 @@ function applyZaiGlm53OpenAIDefaults<T>(
   let next: Record<string, unknown> | null = null;
   const mutate = (): Record<string, unknown> => (next ??= { ...record });
 
+  if (baseModel.toLowerCase() === "glm-5.3" && Array.isArray(record.messages)) {
+    // Walk every turn, including images lifted from tool results and nested content.
+    // Restrict traversal to content so tool arguments and schemas remain untouched.
+    const omitImages = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(omitImages);
+      if (!value || typeof value !== "object") return value;
+      const part = value as Record<string, unknown>;
+      if (part.type === "image_url") {
+        return { type: "text", text: "[image omitted — model does not support vision]" };
+      }
+      if (Array.isArray(part.content)) {
+        return { ...part, content: omitImages(part.content) };
+      }
+      return value;
+    };
+    mutate().messages = omitImages(record.messages);
+  }
+
   const editableForEffort = mutate();
   if (effortMatch) editableForEffort.model = baseModel;
   if (record.reasoning_effort === undefined && record.reasoning === undefined) {
