@@ -10,8 +10,8 @@ test("T12: pricing table includes current Codex, MiniMax, GLM and Kimi entries",
   assert.ok(pricing.cx["gpt-5.6-sol-ultra"], "missing cx/gpt-5.6-sol-ultra");
   assert.ok(pricing.cx["gpt-5.6-terra-max"], "missing cx/gpt-5.6-terra-max");
   assert.ok(pricing.cx["gpt-5.6-luna-max"], "missing cx/gpt-5.6-luna-max");
-  assert.equal(pricing.cx["gpt-5.6-sol"].input, 5);
-  assert.equal(pricing.cx["gpt-5.6-sol"].output, 30);
+  assert.equal(pricing.cx["gpt-5.6-sol"].input, 4);
+  assert.equal(pricing.cx["gpt-5.6-sol"].output, 20);
   assert.equal(pricing.cx["gpt-5.6-terra"].input, 2.5);
   assert.equal(pricing.cx["gpt-5.6-terra"].output, 15);
   assert.equal(pricing.cx["gpt-5.6-luna"].input, 1);

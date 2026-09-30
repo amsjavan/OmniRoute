@@ -4,6 +4,7 @@
  */
 import {
   GPT_6_ASTRA_PRICING,
+  GPT_6_SOL_PRICING,
   CLAUDE_FABLE_5_1_PRICING,
   CLAUDE_OPUS_5_PRICING,
   GEMINI_3_7_FLASH_PROMO_PRICING,
@@ -110,6 +111,14 @@ export const DEFAULT_PRICING_OAUTH = {
     "codex-auto-review": GPT_5_5_PRICING,
     // Codex uses credits per 1M tokens. OmniRoute stores the dollar-equivalent
     // values below at the documented conversion of 25 credits per USD.
+    "gpt-6-sol": GPT_6_SOL_PRICING,
+    "gpt-6-sol-ultra": GPT_6_SOL_PRICING,
+    "gpt-6-sol-max": GPT_6_SOL_PRICING,
+    "gpt-6-sol-xhigh": GPT_6_SOL_PRICING,
+    "gpt-6-sol-high": GPT_6_SOL_PRICING,
+    "gpt-6-sol-medium": GPT_6_SOL_PRICING,
+    "gpt-6-sol-low": GPT_6_SOL_PRICING,
+    // TODO: gpt-6-luna is in the Command Code registry; add pricing only once officially confirmed.
     "gpt-5.6-sol": GPT_5_6_SOL_PRICING,
     "gpt-5.6-sol-ultra": GPT_5_6_SOL_PRICING,
     "gpt-5.6-sol-max": GPT_5_6_SOL_PRICING,

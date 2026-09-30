@@ -345,7 +345,7 @@ test("GET /api/usage/analytics does not report flex savings for non-Codex provid
 
 test("GET /api/usage/analytics applies Codex GPT-5.6 Sol Fast multiplier", async () => {
   await localDb.updatePricing({
-    codex: { "gpt-5.6-sol": { input: 5, output: 30 } },
+    codex: { "gpt-5.6-sol": { input: 4, output: 20 } },
   });
   const db = core.getDbInstance();
   db.prepare(
@@ -367,8 +367,8 @@ test("GET /api/usage/analytics applies Codex GPT-5.6 Sol Fast multiplier", async
   const body = await response.json();
 
   assert.equal(response.status, 200);
-  assertClose(body.summary.totalCost, 0.03);
-  assertClose(body.summary.fastCost, 0.03);
+  assertClose(body.summary.totalCost, 0.021);
+  assertClose(body.summary.fastCost, 0.021);
 });
 
 test("GET /api/usage/analytics maps Codex auto-review usage to GPT-5.5 pricing", async () => {

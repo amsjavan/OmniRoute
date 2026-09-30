@@ -117,6 +117,7 @@ const KNOWN_MODEL_IDS = new Set(MODEL_TO_PROVIDERS.keys());
 // `openai/gpt-5.6-sol`) — the prefix path always wins.
 export const CODEX_NATIVE_UNPREFIXED_MODELS = new Set([
   "codex-auto-review",
+  "gpt-6.1-sol",
   "gpt-5.6-sol",
   "gpt-5.6-sol-ultra",
   "gpt-5.6-sol-max",

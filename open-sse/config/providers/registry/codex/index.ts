@@ -28,6 +28,11 @@ export const codexProvider: RegistryEntry = {
     tokenUrl: "https://auth.openai.com/oauth/token",
   },
   models: [
+    {
+      id: "gpt-6.1-sol",
+      name: "GPT 6.1 Sol",
+      ...GPT_5_6_CODEX_CAPABILITIES,
+    },
     // Astra shares GPT-5.6's Codex limits: the live OAuth catalog reports
     // max_context_window=872000 (context_window=272000 is the pricing tier).
     { id: "gpt-6-astra", name: "GPT 6 Astra", ...GPT_5_6_CODEX_CAPABILITIES },

@@ -28,11 +28,19 @@ export const GPT_5_5_PRICING = {
 };
 
 export const GPT_5_6_SOL_PRICING = {
-  input: 5.0,
-  output: 30.0,
-  cached: 0.5,
-  reasoning: 30.0,
-  cache_creation: 6.25,
+  input: 4.0,
+  output: 20.0,
+  cached: 0.4,
+  reasoning: 20.0,
+  cache_creation: 5.0,
+};
+
+export const GPT_6_SOL_PRICING = {
+  input: 2.0,
+  output: 10.0,
+  cached: 0.2,
+  reasoning: 10.0,
+  cache_creation: 2.5,
 };
 
 export const GPT_5_6_TERRA_PRICING = {

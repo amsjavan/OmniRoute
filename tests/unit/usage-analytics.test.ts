@@ -404,7 +404,7 @@ test("Codex Fast service tier applies GPT-5.5 and GPT-5.6 credit multipliers", a
   await localDb.updatePricing({
     codex: {
       "gpt-5.5": { input: 5, output: 30 },
-      "gpt-5.6-sol": { input: 5, output: 30 },
+      "gpt-5.6-sol": { input: 4, output: 20 },
     },
   });
 
@@ -415,7 +415,7 @@ test("Codex Fast service tier applies GPT-5.5 and GPT-5.6 credit multipliers", a
   assert.equal(await calculateCost("codex", "gpt-5.5", tokens, { serviceTier: "flex" }), 0.01);
   assert.equal(
     await calculateCost("codex", "gpt-5.6-sol-high", tokens, { serviceTier: "fast" }),
-    0.03
+    0.021
   );
   assert.equal(getCodexFastCostMultiplier("cx", "gpt-5.6-terra-ultra", "fast"), 1.5);
   assert.equal(getCodexFastCostMultiplier("codex", "gpt-5.6-luna-max", "priority"), 1.5);

@@ -50,3 +50,24 @@ test("formatCost remains re-exported from the pricing barrel", () => {
   const fn = (P as Record<string, (value: number) => string>).formatCost;
   assert.equal(fn(0.0123), "$0.0123");
 });
+
+test("GPT Sol pricing covers OpenAI and every Codex effort variant", () => {
+  const tiers = {
+    "gpt-5.6-sol": { input: 4, output: 20, cached: 0.4, reasoning: 20, cache_creation: 5 },
+    "gpt-6-sol": { input: 2, output: 10, cached: 0.2, reasoning: 10, cache_creation: 2.5 },
+  };
+
+  for (const [model, expected] of Object.entries(tiers)) {
+    assert.deepEqual(P.getPricingForModel("openai", model), expected, `openai/${model}`);
+    for (const suffix of ["", "-ultra", "-max", "-xhigh", "-high", "-medium", "-low"]) {
+      assert.deepEqual(
+        P.getPricingForModel("cx", `${model}${suffix}`),
+        expected,
+        `cx/${model}${suffix}`
+      );
+    }
+  }
+  assert.deepEqual(P.getPricingForModel("openai", "gpt-5.6"), tiers["gpt-5.6-sol"]);
+  assert.deepEqual(P.getPricingForModel("kiro", "gpt-5.6-sol"), tiers["gpt-5.6-sol"]);
+  assert.equal(P.getPricingForModel("cx", "gpt-6-luna"), null);
+});
