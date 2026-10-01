@@ -353,7 +353,7 @@ function clampEffort(model: string, requested: string): string {
 }
 
 const CODEX_REASONING_ENCRYPTED_CONTENT_INCLUDE = "reasoning.encrypted_content";
-const CODEX_DEFAULT_REASONING_SUMMARY = "auto";
+const CODEX_DEFAULT_REASONING_SUMMARY = "detailed";
 
 function normalizeEffortValue(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
