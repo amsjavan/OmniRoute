@@ -5,6 +5,7 @@ import { cursorProvider } from "../../open-sse/config/providers/registry/cursor/
 
 const CURSOR_FAMILY_REPRESENTATIVES = [
   "cursor-grok-4.6-high-fast",
+  "cursor-grok-4.7-high-fast",
   "composer-2.5",
   "claude-fable-5-1-thinking-high",
   "claude-opus-5-thinking-high",
@@ -31,10 +32,26 @@ test("cursor registry keeps every selected model family", () => {
   }
 });
 
+test("cursor registry mirrors all eight Grok 4.6 variants for Grok 4.7", () => {
+  const previous = cursorProvider.models.filter((model) => model.id.startsWith("cursor-grok-4.6-"));
+  const current = cursorProvider.models.filter((model) => model.id.startsWith("cursor-grok-4.7-"));
+  assert.equal(previous.length, 8);
+  assert.equal(current.length, 8);
+  assert.deepEqual(
+    current,
+    previous.map((model) => ({
+      ...model,
+      id: model.id.replace("4.6", "4.7"),
+      name: model.name.replace("4.6", "4.7"),
+    }))
+  );
+});
+
 test("cursor registry omits redundant bare ids for parameterized models", () => {
   const ids = new Set(cursorProvider.models.map((model) => model.id));
   for (const id of [
     "grok-4.6",
+    "grok-4.7",
     "claude-fable-5-1",
     "claude-opus-5",
     "claude-opus-4-8",
@@ -56,6 +73,7 @@ test("cursor registry keeps thinking, effort/reasoning and fast variants selecta
   const ids = new Set(cursorProvider.models.map((model) => model.id));
   for (const id of [
     "cursor-grok-4.6-xhigh-fast",
+    "cursor-grok-4.7-xhigh-fast",
     "composer-2.5-fast",
     "claude-fable-5-1-thinking-max",
     "claude-opus-5-thinking-xhigh-fast",
@@ -124,6 +142,7 @@ test("cursor registry orders each model family by quality, thinking and speed", 
   const ids = cursorProvider.models.map((model) => model.id);
   for (const orderedIds of [
     ["cursor-grok-4.6-xhigh-fast", "cursor-grok-4.6-xhigh", "cursor-grok-4.6-low"],
+    ["cursor-grok-4.7-xhigh-fast", "cursor-grok-4.7-xhigh", "cursor-grok-4.7-low"],
     ["composer-2.5-fast", "composer-2.5"],
     ["claude-fable-5-1-thinking-max", "claude-fable-5-1-thinking-low"],
     ["claude-opus-5-thinking-high-fast", "claude-opus-5-high-fast", "claude-opus-5-low"],
