@@ -165,6 +165,15 @@ export function resolveExecutionCredentials(opts: {
     providerSpecificData.targetFormat = targetFormat;
   }
 
+  // Command Code serves claude-* models only on /provider/v1/messages and every
+  // other model on /provider/v1/chat/completions. Hand CommandCodeExecutor the
+  // resolved per-request format so its endpoint always matches the body shape
+  // chatCore translated to (including custom-model overrides), without
+  // persisting it to the connection.
+  if (provider === "command-code" || provider === "cmd") {
+    providerSpecificData.targetFormat = targetFormat;
+  }
+
   applyKimiExecutionMetadata(providerSpecificData, provider, targetFormat, modelInfo);
   const withApiType = {
     ...nextCredentials,

@@ -1,12 +1,15 @@
 import { randomUUID } from "node:crypto";
 
 import { isVisionModelId } from "@/shared/constants/visionModels";
+import { getModelTargetFormat } from "../config/providerModels.ts";
 import { REGISTRY } from "../config/providerRegistry.ts";
+import { FORMATS } from "../translator/formats.ts";
 import {
   BaseExecutor,
   mergeUpstreamExtraHeaders,
   sanitizeReasoningEffortForProvider,
   type ExecuteInput,
+  type ProviderCredentials,
 } from "./base.ts";
 
 type JsonRecord = Record<string, unknown>;
@@ -90,6 +93,30 @@ function normalizeCommandCodeWireModel(model: string): string {
   return COMMAND_CODE_BARE_MODEL_VENDOR_PREFIX[bare] ?? bare;
 }
 
+/**
+ * Command Code's live catalog lists every `claude-*` model with
+ * `supported_endpoints: ["/messages"]`; /provider/v1/chat/completions rejects
+ * them with 400 "must be called via /provider/v1/messages (Anthropic Messages
+ * shape)". Registry and heuristic tagging (getModelTargetFormat → "claude")
+ * make chatCore translate the request to Anthropic Messages; this executor
+ * only has to pick the matching endpoint.
+ *
+ * chatCore threads its resolved target format onto
+ * `providerSpecificData.targetFormat` (resolveExecutionCredentials) so the URL
+ * always matches the body shape it built, including custom-model overrides.
+ * Direct executor callers without that hint fall back to the registry lookup.
+ */
+export function usesCommandCodeMessagesEndpoint(
+  model: string,
+  credentials?: ProviderCredentials | null
+): boolean {
+  const threaded = credentials?.providerSpecificData?.targetFormat;
+  if (typeof threaded === "string" && threaded) return threaded === FORMATS.CLAUDE;
+  return (
+    getModelTargetFormat("command-code", normalizeCommandCodeWireModel(model)) === FORMATS.CLAUDE
+  );
+}
+
 // ── OpenAi Flat Body Builder (/provider/v1/chat/completions) ─────────────────
 
 function buildOpenAiBody(model: string, body: unknown, stream: boolean): { body: JsonRecord } {
@@ -113,6 +140,23 @@ function buildOpenAiBody(model: string, body: unknown, stream: boolean): { body:
   }
 
   return { body: out };
+}
+
+// ── Anthropic Messages body (/provider/v1/messages) ──────────────────────────
+
+function buildMessagesBody(model: string, body: unknown, stream: boolean): { body: JsonRecord } {
+  // chatCore already produced an Anthropic Messages body; only pin the wire
+  // model id and the stream flag.
+  const input = isRecord(body) ? { ...(body as JsonRecord) } : {};
+  return {
+    body: {
+      ...input,
+      model: normalizeCommandCodeWireModel(
+        typeof input.model === "string" && input.model.trim().length > 0 ? input.model : model
+      ),
+      stream: stream === true,
+    },
+  };
 }
 
 // ── CLI Body Builder & Converters (/alpha/generate fallback) ─────────────────
@@ -884,19 +928,62 @@ export class CommandCodeExecutor extends BaseExecutor {
     super(provider, REGISTRY["command-code"]);
   }
 
-  buildUrl() {
-    const baseUrl = (this.config.baseUrl || "https://api.commandcode.ai").replace(/\/$/, "");
-    return `${baseUrl}${this.config.chatPath || "/provider/v1/chat/completions"}`;
+  private baseUrl(): string {
+    return (this.config.baseUrl || "https://api.commandcode.ai").replace(/\/$/, "");
+  }
+
+  buildUrl(
+    model?: string,
+    _stream?: boolean,
+    _urlIndex = 0,
+    credentials?: ProviderCredentials | null
+  ) {
+    if (model && usesCommandCodeMessagesEndpoint(model, credentials)) {
+      return this.buildMessagesUrl();
+    }
+    return `${this.baseUrl()}${this.config.chatPath || "/provider/v1/chat/completions"}`;
+  }
+
+  buildMessagesUrl() {
+    return this.config.messagesUrl || `${this.baseUrl()}/provider/v1/messages`;
   }
 
   buildCliUrl() {
-    const baseUrl = (this.config.baseUrl || "https://api.commandcode.ai").replace(/\/$/, "");
-    return `${baseUrl}/alpha/generate`;
+    return `${this.baseUrl()}/alpha/generate`;
   }
 
   async execute({ model, body, stream, credentials, signal, upstreamExtraHeaders }: ExecuteInput) {
     const apiKey = credentials?.apiKey || credentials?.accessToken;
     if (!apiKey) throw new Error("Command Code API key required");
+
+    // claude-* models speak Anthropic Messages on /provider/v1/messages; the
+    // body arrives already translated by chatCore (targetFormat "claude").
+    // Never fall back to /alpha/generate for them: Command Code proxy-blocks
+    // that CLI-only endpoint for external callers (#10265).
+    if (usesCommandCodeMessagesEndpoint(model, credentials)) {
+      const url = this.buildMessagesUrl();
+      const { body: transformedBody } = buildMessagesBody(model, body, stream);
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "anthropic-version": "2023-06-01",
+        Accept: stream ? "text/event-stream" : "application/json",
+      };
+      mergeUpstreamExtraHeaders(headers, upstreamExtraHeaders);
+
+      const upstream = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(transformedBody),
+        signal: signal || undefined,
+      });
+
+      // Success and error responses alike go back to chatCore untouched:
+      // targetFormat "claude" already selects the Claude→OpenAI translation
+      // for the JSON body and the SSE stream, and a 403 MODEL_NOT_IN_PLAN
+      // must reach the client verbatim.
+      return { response: upstream, url, headers, transformedBody };
+    }
 
     const sanitizedBody = sanitizeReasoningEffortForProvider(body, this.provider, model);
     const { body: transformedBody } = buildOpenAiBody(model, sanitizedBody, stream);

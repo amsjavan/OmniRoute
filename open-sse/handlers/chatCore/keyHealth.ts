@@ -25,6 +25,7 @@ import {
   type KeyHealth,
 } from "../../services/apiKeyRotator.ts";
 import { isModelUnavailableError } from "../../services/modelFamilyFallback.ts";
+import { isModelNotInPlanError } from "../../config/providerErrorRules.ts";
 import { hasPerModelQuota } from "../../services/accountFallback.ts";
 import { updateProviderConnection } from "@/lib/db/providers";
 
@@ -55,6 +56,9 @@ function isModelCapabilityFailure(status: number, failureDetail: string): boolea
 function isCredentialFailure(status: number, failureDetail: string): boolean {
   if (status !== 401 && status !== 403) return false;
   if (isModelCapabilityFailure(status, failureDetail)) return false;
+  // A plan restriction (e.g. Command Code's `code: "FORBIDDEN"` MODEL_NOT_IN_PLAN)
+  // rejects one model, not the key — the same key keeps serving the rest.
+  if (isModelNotInPlanError(status, failureDetail)) return false;
   if (status === 401) return true;
   return CREDENTIAL_FAILURE_PATTERNS.some((pattern) => pattern.test(failureDetail));
 }

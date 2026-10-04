@@ -84,6 +84,7 @@ import {
   honorsRuleLockScope,
   isEgressBucketedLockScope,
   egressBucketedLockProviders,
+  isModelNotInPlanError,
 } from "@omniroute/open-sse/config/providerErrorRules.ts";
 import {
   preflightQuota,
@@ -3151,6 +3152,41 @@ export async function markAccountUnavailable(
       log.info(
         "AUTH",
         `Mode-only lockout for ${provider}:${model} — 403 forbidden ${Math.ceil(lockout.cooldownMs / 1000)}s (connection stays active)`
+      );
+      return { shouldFallback: true, cooldownMs: lockout.cooldownMs };
+    }
+
+    // Command Code plan restriction (403 MODEL_NOT_IN_PLAN): only this model is
+    // outside the account's plan; the key keeps serving every model the plan
+    // includes. Lock just the model instead of letting the generic apikey-403
+    // auth_error path cool (and exponentially back off) the whole connection,
+    // which would take DeepSeek/Kimi/GLM down with it. A plan limit does not
+    // lift on its own, so the lock runs for the operator's model-lockout cap.
+    if (
+      provider &&
+      resolveProviderId(provider) === "command-code" &&
+      model &&
+      isModelNotInPlanError(status, errorText)
+    ) {
+      const lockout = recordModelLockoutFailure(
+        provider,
+        connectionId,
+        model,
+        "forbidden",
+        status,
+        mlSettings.maxCooldownMs,
+        effectiveProviderProfile,
+        { exactCooldownMs: mlSettings.maxCooldownMs, maxCooldownMs: mlSettings.maxCooldownMs }
+      );
+      updateProviderConnection(connectionId, {
+        lastErrorType: "forbidden",
+        lastError: `Model ${model} is not included in the Command Code plan (MODEL_NOT_IN_PLAN)`,
+        lastErrorAt: new Date().toISOString(),
+        errorCode: status,
+      }).catch(() => {});
+      log.info(
+        "AUTH",
+        `Model-only lockout for ${provider}:${model} — 403 MODEL_NOT_IN_PLAN ${Math.ceil(lockout.cooldownMs / 1000)}s (connection stays active)`
       );
       return { shouldFallback: true, cooldownMs: lockout.cooldownMs };
     }

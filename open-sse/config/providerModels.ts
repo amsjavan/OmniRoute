@@ -231,6 +231,10 @@ export function getModelTargetFormat(aliasOrId: string, modelId: string): string
   // ponytail: Claude models on Vertex use rawPredict with Anthropic Messages format,
   // not the Gemini generateContent format. Mirrors executor isClaudeModel() check.
   if ((alias === "vertex" || alias === "vp") && /^claude-/i.test(bareModelId)) return "claude";
+  // Command Code serves every claude-* model only on /provider/v1/messages
+  // (supported_endpoints: ["/messages"]); covers live-discovered ids that are
+  // not in the static catalog yet. Mirrors CommandCodeExecutor's routing.
+  if (alias === "cmd" && /^claude-/i.test(bareModelId)) return "claude";
   // Model-level targetFormat is provider-scoped: a catalog entry declares how THIS
   // provider's endpoint serves the model — do NOT import another provider's tag.
   // #9994 scoped this for providers WITH a catalog; #10072 extends it to catalogless

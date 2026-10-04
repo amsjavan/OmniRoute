@@ -14,16 +14,85 @@ export const command_codeProvider: RegistryEntry = {
   // already targets the sibling /provider/v1/models endpoint.
   chatPath: "/provider/v1/chat/completions",
   modelsUrl: "https://api.commandcode.ai/provider/v1/models",
+  // claude-* models are served ONLY on the Anthropic Messages endpoint (live
+  // catalog: supported_endpoints ["/messages"]); /provider/v1/chat/completions
+  // rejects them with 400 "must be called via /provider/v1/messages (Anthropic
+  // Messages shape)". Each claude-* entry below carries targetFormat: "claude"
+  // (getModelTargetFormat also maps any live-discovered claude-* id), so
+  // chatCore translates the request to Anthropic Messages and
+  // CommandCodeExecutor posts it here. Non-claude models keep chatPath.
   // The discovery response is a partial routing catalog; static registry
   // entries omitted from it can still be accepted by the gateway.
   liveCatalogAuthoritative: false,
+  messagesUrl: "https://api.commandcode.ai/provider/v1/messages",
   authType: "apikey",
   authHeader: "Authorization",
   authPrefix: "Bearer ",
   defaultContextLength: 200000,
   models: [
     {
+      id: "claude-opus-5-5",
+      targetFormat: "claude",
+      name: "Claude Opus 5.5 (CC)",
+      supportsReasoning: true,
+      supportedThinkingEfforts: COMMAND_CODE_REASONING_EFFORTS,
+      supportsVision: true,
+      contextLength: 1000000,
+      maxOutputTokens: 32000,
+    },
+    {
+      id: "claude-opus-5",
+      targetFormat: "claude",
+      name: "Claude Opus 5 (CC)",
+      supportsReasoning: true,
+      supportedThinkingEfforts: COMMAND_CODE_REASONING_EFFORTS,
+      supportsVision: true,
+      contextLength: 1000000,
+      maxOutputTokens: 32000,
+    },
+    {
+      id: "claude-opus-4-8",
+      targetFormat: "claude",
+      name: "Claude Opus 4.8 (CC)",
+      supportsReasoning: true,
+      supportedThinkingEfforts: COMMAND_CODE_REASONING_EFFORTS,
+      supportsVision: true,
+      contextLength: 200000,
+      maxOutputTokens: 32000,
+    },
+    {
+      id: "claude-sonnet-5",
+      targetFormat: "claude",
+      name: "Claude Sonnet 5 (CC)",
+      supportsReasoning: true,
+      supportedThinkingEfforts: COMMAND_CODE_REASONING_EFFORTS,
+      supportsVision: true,
+      contextLength: 1000000,
+      maxOutputTokens: 16384,
+    },
+    {
+      id: "claude-fable-5",
+      targetFormat: "claude",
+      name: "Claude Fable 5 (CC)",
+      supportsReasoning: true,
+      supportedThinkingEfforts: COMMAND_CODE_REASONING_EFFORTS,
+      supportsVision: true,
+      contextLength: 1000000,
+      maxOutputTokens: 32000,
+    },
+    {
+      id: "claude-fable-5-1",
+      targetFormat: "claude",
+      name: "Claude Fable 5.1 (CC)",
+      supportsReasoning: true,
+      supportedThinkingEfforts: COMMAND_CODE_REASONING_EFFORTS,
+      supportsVision: true,
+      contextLength: 1000000,
+      maxOutputTokens: 32000,
+    },
+    {
       id: "claude-opus-4-7",
+      targetFormat: "claude",
       name: "Claude Opus 4.7 (CC)",
       supportsReasoning: true,
       supportedThinkingEfforts: COMMAND_CODE_REASONING_EFFORTS,
@@ -33,6 +102,7 @@ export const command_codeProvider: RegistryEntry = {
     },
     {
       id: "claude-opus-4-6",
+      targetFormat: "claude",
       name: "Claude Opus 4.6 (CC)",
       supportsReasoning: true,
       supportedThinkingEfforts: COMMAND_CODE_REASONING_EFFORTS,
@@ -42,6 +112,7 @@ export const command_codeProvider: RegistryEntry = {
     },
     {
       id: "claude-sonnet-4-6",
+      targetFormat: "claude",
       name: "Claude Sonnet 4.6 (CC)",
       supportsReasoning: true,
       supportedThinkingEfforts: COMMAND_CODE_REASONING_EFFORTS,
@@ -51,6 +122,7 @@ export const command_codeProvider: RegistryEntry = {
     },
     {
       id: "claude-haiku-4-5-20251001",
+      targetFormat: "claude",
       name: "Claude Haiku 4.5 (CC)",
       supportsReasoning: true,
       supportedThinkingEfforts: COMMAND_CODE_REASONING_EFFORTS,

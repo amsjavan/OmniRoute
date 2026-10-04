@@ -17,6 +17,12 @@ const originalFetch = globalThis.fetch;
 type FetchCall = { url: string; init: Record<string, unknown>; body?: Record<string, unknown> };
 
 const PINNED_COMMAND_CODE_MODELS = [
+  "claude-opus-5-5",
+  "claude-opus-5",
+  "claude-opus-4-8",
+  "claude-sonnet-5",
+  "claude-fable-5",
+  "claude-fable-5-1",
   "claude-opus-4-7",
   "claude-opus-4-6",
   "claude-sonnet-4-6",
@@ -84,6 +90,15 @@ test("Command Code provider catalog has pinned models and alias lookup", () => {
   // Chat targets the documented /provider/v1/chat/completions endpoint, NOT the
   // CLI-only /alpha/generate endpoint (#10265).
   assert.equal(entry.chatPath, "/provider/v1/chat/completions");
+  // claude-* models are served only on the Anthropic Messages endpoint.
+  assert.equal(entry.messagesUrl, "https://api.commandcode.ai/provider/v1/messages");
+  for (const model of entry.models) {
+    assert.equal(
+      model.targetFormat,
+      model.id.startsWith("claude-") ? "claude" : undefined,
+      `${model.id} targetFormat`
+    );
+  }
   assert.deepEqual(
     entry.models.map((model) => model.id),
     PINNED_COMMAND_CODE_MODELS
@@ -224,7 +239,7 @@ test("Command Code executor passes the upstream OpenAI SSE stream through untouc
     }) +
     "data: [DONE]\n\n";
   let capturedStreamFlag: unknown = null;
-  globalThis.fetch = async (url, init = {}) => {
+  globalThis.fetch = async (_url, init = {}) => {
     capturedStreamFlag = JSON.parse(String(init.body)).stream;
     return new Response(sse, {
       status: 200,
@@ -262,7 +277,7 @@ test("Command Code executor passes the upstream OpenAI JSON through untouched (n
     usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 },
   };
   let capturedStreamFlag: unknown = null;
-  globalThis.fetch = async (url, init = {}) => {
+  globalThis.fetch = async (_url, init = {}) => {
     capturedStreamFlag = JSON.parse(String(init.body)).stream;
     return new Response(JSON.stringify(upstreamJson), {
       status: 200,

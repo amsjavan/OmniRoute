@@ -541,3 +541,18 @@ export function getOpencodeModelUnavailableMatch(
   const match = getProviderErrorRuleMatch(provider, status, headers, errorText);
   return match?.scope === "model" && match.reason === "model_capacity" ? match : null;
 }
+
+/**
+ * Command Code plan restriction: a 403 whose body carries
+ * `MODEL_NOT_IN_PLAN: <model> available in Pro and above plans or extra on
+ * demand usage` (chat shape `{error:{code:"FORBIDDEN"}}`, Anthropic shape
+ * `{type:"error",error:{type:"permission_error"}}`). Only that model is outside
+ * the account's plan — the key itself is valid and keeps serving every model
+ * the plan includes, so this is a MODEL-scoped signal: never a credential
+ * failure and never a reason to cool the whole connection down.
+ */
+export function isModelNotInPlanError(status: number, errorText: unknown): boolean {
+  if (status !== 403) return false;
+  const text = typeof errorText === "string" ? errorText : JSON.stringify(errorText ?? "");
+  return /\bMODEL_NOT_IN_PLAN\b/.test(text);
+}
