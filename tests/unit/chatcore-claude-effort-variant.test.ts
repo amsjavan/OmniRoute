@@ -173,3 +173,18 @@ test("no-think alias's explicit reasoning_effort:none is not overwritten by a st
   assert.equal(body.model, "claude-sonnet-5");
   assert.equal(body.reasoning_effort, "none");
 });
+
+test("cursor providers keep flattened Claude effort ids (Cursor routes them verbatim)", () => {
+  for (const provider of ["cursor", "cursor-api"]) {
+    const body: Record<string, unknown> = { model: "claude-opus-5-high" };
+    const out = applyClaudeEffortVariant({
+      provider,
+      effectiveModel: "claude-opus-5-high",
+      body,
+      sourceFormat: FORMATS.OPENAI,
+    });
+    assert.equal(out.effectiveModel, "claude-opus-5-high");
+    assert.equal(out.log, null);
+    assert.deepEqual(body, { model: "claude-opus-5-high" });
+  }
+});

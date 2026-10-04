@@ -47,12 +47,11 @@ test("resolveRequestedModel maps cursor-agent's client-side aliases", () => {
     modelId: "composer-2",
     parameters: [{ id: "fast", value: "true" }],
   });
-  // #7289: pinned Claude ids with an effort suffix split into the base id +
-  // an "effort" ModelParameter — cursor's server has no route for the
-  // suffixed id verbatim (see cursor-model-effort-suffix-7289.test.ts).
+  // Cursor publishes flattened Claude effort ids; the base id + effort split is
+  // AI Model Not Found (see cursor-model-effort-suffix-7289.test.ts).
   assert.deepEqual(resolveRequestedModel("claude-4.6-sonnet-medium"), {
-    modelId: "claude-4.6-sonnet",
-    parameters: [{ id: "effort", value: "medium" }],
+    modelId: "claude-4.6-sonnet-medium",
+    parameters: [],
   });
   assert.deepEqual(resolveRequestedModel("composer-2"), { modelId: "composer-2", parameters: [] });
 });
@@ -303,21 +302,18 @@ test("encodeAgentRunRequest sends ModelDetails for pinned thinking models (#3714
   // #3714: pinned Claude/GPT thinking variants returned an empty turn when sent only via
   // RequestedModel (field 9, bare model_id). cursor-agent's working wire format also
   // carries a ModelDetails envelope with model_id + display_model_id + display_name.
-  // #7289: the trailing effort suffix ("-xhigh") is now split off into a separate
-  // ModelParameter — the BASE id is what's shared across RequestedModel + ModelDetails.
+  // Flattened Claude ids travel verbatim — the full id is what's shared across
+  // RequestedModel + ModelDetails.
   const modelId = "claude-opus-4-7-thinking-xhigh";
-  const baseModelId = "claude-opus-4-7-thinking";
   const buf = encodeAgentRunRequest({ modelId, userText: "hi" });
   const text = buf.toString("latin1");
-  const occurrences = text.split(baseModelId).length - 1;
+  const occurrences = text.split(modelId).length - 1;
   // RequestedModel.model_id (1) + ModelDetails {model_id, display_model_id, display_name}
-  // (3) → the base id must appear at least 4 times.
+  // (3) → the id must appear at least 4 times.
   assert.ok(
     occurrences >= 4,
-    `base model id must be encoded in both RequestedModel and ModelDetails (got ${occurrences})`
+    `model id must be encoded in both RequestedModel and ModelDetails (got ${occurrences})`
   );
-  assert.ok(text.includes("effort"), "effort parameter id present (#7289)");
-  assert.ok(text.includes("xhigh"), "effort parameter value present (#7289)");
 });
 
 test("encodeAgentRunRequest keeps RequestedModel + parameters alongside ModelDetails (#3714)", () => {

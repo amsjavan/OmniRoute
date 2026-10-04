@@ -321,14 +321,15 @@ export function normalizeCursorModelId(modelId: string): string {
 // are valid wire model ids as-is; splitting their final effort/sizing token
 // makes Cursor reject the base id as AI Model Not Found when no live catalog
 // snapshot is available to the executor.
+//
+// Every Claude family is flattened on Cursor's side (verified live 2026-10-04:
+// claude-opus-5-high, claude-sonnet-5-high, claude-4.6-opus-max, … all answer
+// verbatim, while every base id + {effort} split is AI Model Not Found), so all
+// `claude-` ids pass through untouched.
 function isKnownFlattenedCursorModelId(normalized: string): boolean {
   return (
     normalized.startsWith("cursor-grok-") ||
-    normalized.startsWith("claude-fable-5-") ||
-    normalized.startsWith("claude-opus-4-7") ||
-    normalized.startsWith("claude-opus-4-8") ||
-    normalized.startsWith("claude-opus-5-thinking-max") ||
-    normalized.startsWith("claude-sonnet-5-max") ||
+    normalized.startsWith("claude-") ||
     normalized.startsWith("gpt-5.4-") ||
     normalized.startsWith("gpt-5.5-") ||
     normalized.startsWith("gpt-5.6-")
@@ -471,10 +472,6 @@ export function resolveRequestedModel(
   const grokSplit = resolveGrokRequestedModel(normalized);
   if (grokSplit) {
     return grokSplit;
-  }
-  const claudeSplit = splitCursorEffortSuffix(normalized, "claude-", "effort");
-  if (claudeSplit) {
-    return claudeSplit;
   }
   const gptSplit = splitCursorEffortSuffix(normalized, "gpt-", "reasoning");
   if (gptSplit) {

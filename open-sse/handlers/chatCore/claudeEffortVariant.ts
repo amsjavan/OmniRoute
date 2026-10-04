@@ -17,6 +17,8 @@ import { isClaudeCodeCompatibleProvider } from "../../services/claudeCodeCompati
 import { FORMATS } from "../../translator/formats.ts";
 import { isKnownClaudeEffortBaseModel } from "../../utils/claudeEffortVariants.ts";
 
+const CURSOR_FLATTENED_PROVIDERS = new Set(["cursor", "cursor-api"]);
+
 /**
  * True when the client already supplied an explicit reasoning effort (top-level reasoning_effort,
  * reasoning.effort, or output_config.effort) — in which case the stripped suffix must not overwrite
@@ -41,7 +43,9 @@ export function applyClaudeEffortVariant(opts: {
   let effectiveModel = opts.effectiveModel;
   let log: string | null = null;
 
-  if (typeof effectiveModel === "string") {
+  // Cursor publishes the suffixed ids as real flattened models (claude-opus-5-high, …) and
+  // answers the stripped base id with AI Model Not Found; its executor routes them itself.
+  if (typeof effectiveModel === "string" && !CURSOR_FLATTENED_PROVIDERS.has(provider ?? "")) {
     const { baseModel, effort } = splitClaudeEffortSuffix(effectiveModel);
     const isDirectClaudeLane = provider === "claude" || isClaudeCodeCompatibleProvider(provider);
     if (effort && (isDirectClaudeLane || isKnownClaudeEffortBaseModel(baseModel))) {

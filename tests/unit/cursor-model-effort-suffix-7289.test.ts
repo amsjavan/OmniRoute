@@ -10,23 +10,26 @@ import { resolveRequestedModel } from "../../open-sse/utils/cursorAgentProtobuf"
 // an effort suffix carries the BASE model id (suffix stripped) plus a
 // separate ModelParameter — "effort" for Claude models, "reasoning" for GPT
 // models — not the full suffixed id crammed into model_id.
-test("resolveRequestedModel splits the effort suffix off pinned Claude model ids (#7289)", () => {
-  assert.deepEqual(resolveRequestedModel("claude-opus-4-8-high"), {
-    modelId: "claude-opus-4-8",
-    parameters: [{ id: "effort", value: "high" }],
+// Superseded for Claude and the flattened GPT/Grok families: Cursor now
+// publishes flattened effort ids and answers the base id + parameter split
+// with AI Model Not Found (verified live 2026-10-04), so those pass through.
+for (const id of [
+  "claude-opus-4-8-high",
+  "claude-sonnet-5-high",
+  "claude-opus-5-high",
+  "claude-opus-5-thinking-high-fast",
+  "claude-4.6-opus-max",
+  "claude-4.6-sonnet-medium-thinking",
+  "gpt-5.5-high",
+]) {
+  test(`resolveRequestedModel sends flattened Cursor id ${id} verbatim`, () => {
+    assert.deepEqual(resolveRequestedModel(id), { modelId: id, parameters: [] });
   });
-});
+}
 
-test("resolveRequestedModel splits the effort suffix off pinned Claude sonnet model ids (#7289)", () => {
-  assert.deepEqual(resolveRequestedModel("claude-sonnet-5-high"), {
-    modelId: "claude-sonnet-5",
-    parameters: [{ id: "effort", value: "high" }],
-  });
-});
-
-test("resolveRequestedModel splits the reasoning suffix off pinned GPT model ids (#7289)", () => {
-  assert.deepEqual(resolveRequestedModel("gpt-5.5-high"), {
-    modelId: "gpt-5.5",
+test("resolveRequestedModel still splits the reasoning suffix off unflattened GPT ids (#7289)", () => {
+  assert.deepEqual(resolveRequestedModel("gpt-5-high"), {
+    modelId: "gpt-5",
     parameters: [{ id: "reasoning", value: "high" }],
   });
 });
@@ -49,15 +52,10 @@ test("resolveRequestedModel does not rewrite ids with no recognized effort suffi
   });
 });
 
-test("resolveRequestedModel splits effort off cursor-grok ids (empty-turn fix)", () => {
-  assert.deepEqual(resolveRequestedModel("cursor-grok-4.5-high"), {
-    modelId: "cursor-grok-4.5",
-    parameters: [{ id: "effort", value: "high" }],
-  });
-  assert.deepEqual(resolveRequestedModel("cursor-grok-4.5-medium"), {
-    modelId: "cursor-grok-4.5",
-    parameters: [{ id: "effort", value: "medium" }],
-  });
+test("resolveRequestedModel sends flattened cursor-grok ids verbatim", () => {
+  for (const id of ["cursor-grok-4.5-high", "cursor-grok-4.5-medium"]) {
+    assert.deepEqual(resolveRequestedModel(id), { modelId: id, parameters: [] });
+  }
 });
 
 test("resolveRequestedModel splits effort off legacy grok- ids", () => {
@@ -71,44 +69,28 @@ test("resolveRequestedModel splits effort off legacy grok- ids", () => {
   });
 });
 
-test("resolveRequestedModel splits cursor-grok effort + fast together", () => {
+test("resolveRequestedModel sends flattened cursor-grok effort + fast ids verbatim", () => {
   assert.deepEqual(resolveRequestedModel("cursor-grok-4.5-high-fast"), {
-    modelId: "cursor-grok-4.5",
-    parameters: [
-      { id: "effort", value: "high" },
-      { id: "fast", value: "true" },
-    ],
+    modelId: "cursor-grok-4.5-high-fast",
+    parameters: [],
   });
 });
 
-test("resolveRequestedModel expands Claude 1M catalog ids into complete wire parameters", () => {
+test("resolveRequestedModel maps Claude 1M catalog ids to the flattened slug + context=1m", () => {
   assert.deepEqual(resolveRequestedModel("claude-opus-5-thinking-max-fast-1m"), {
-    modelId: "claude-opus-5",
-    parameters: [
-      { id: "thinking", value: "true" },
-      { id: "context", value: "1m" },
-      { id: "effort", value: "max" },
-      { id: "fast", value: "true" },
-    ],
+    modelId: "claude-opus-5-thinking-max-fast",
+    parameters: [{ id: "context", value: "1m" }],
   });
   assert.deepEqual(resolveRequestedModel("claude-4.6-sonnet-high-thinking-1m"), {
-    modelId: "claude-sonnet-4-6",
-    parameters: [
-      { id: "thinking", value: "true" },
-      { id: "context", value: "1m" },
-      { id: "effort", value: "high" },
-    ],
+    modelId: "claude-4.6-sonnet-high-thinking",
+    parameters: [{ id: "context", value: "1m" }],
   });
 });
 
-test("resolveRequestedModel expands GPT-5.6 1M ids and keeps fast disabled", () => {
+test("resolveRequestedModel maps GPT-5.6 1M ids to the flattened slug + context=1m", () => {
   const id = "gpt-5.6-sol-xhigh-1m";
   assert.deepEqual(resolveRequestedModel(id, { liveCatalogIds: new Set([id]) }), {
-    modelId: "gpt-5.6-sol",
-    parameters: [
-      { id: "context", value: "1m" },
-      { id: "reasoning", value: "xhigh" },
-      { id: "fast", value: "false" },
-    ],
+    modelId: "gpt-5.6-sol-xhigh",
+    parameters: [{ id: "context", value: "1m" }],
   });
 });

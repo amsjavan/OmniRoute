@@ -22,22 +22,22 @@ test("resolveRequestedModel passes live-catalog GPT reasoning ids through verbat
   });
 });
 
-test("resolveRequestedModel still strips effort when id is absent from live catalog", () => {
+test("resolveRequestedModel keeps flattened Claude/GPT ids absent from the live catalog", () => {
   const live = new Set(["composer-2"]);
   assert.deepEqual(resolveRequestedModel("claude-opus-5-low", { liveCatalogIds: live }), {
-    modelId: "claude-opus-5",
-    parameters: [{ id: "effort", value: "low" }],
+    modelId: "claude-opus-5-low",
+    parameters: [],
   });
   assert.deepEqual(resolveRequestedModel("gpt-5.5-high", { liveCatalogIds: live }), {
-    modelId: "gpt-5.5",
-    parameters: [{ id: "reasoning", value: "high" }],
+    modelId: "gpt-5.5-high",
+    parameters: [],
   });
 });
 
-test("resolveRequestedModel still strips effort when liveCatalogIds is omitted", () => {
+test("resolveRequestedModel keeps flattened Claude ids when liveCatalogIds is omitted", () => {
   assert.deepEqual(resolveRequestedModel("claude-opus-4-8-high"), {
-    modelId: "claude-opus-4-8",
-    parameters: [{ id: "effort", value: "high" }],
+    modelId: "claude-opus-4-8-high",
+    parameters: [],
   });
 });
 

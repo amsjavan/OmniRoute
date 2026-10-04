@@ -11,37 +11,42 @@ const CURSOR_GPT_REASONING_LEVELS = ["none", ...CURSOR_EFFORT_SUFFIXES] as const
 const CURSOR_CLAUDE_ONE_MILLION_FAMILIES = [
   {
     legacyPrefix: "claude-fable-5-1",
-    modelId: "claude-fable-5-1",
     supportsFast: false,
     trailingThinking: false,
   },
   {
     legacyPrefix: "claude-opus-5",
-    modelId: "claude-opus-5",
     supportsFast: true,
     trailingThinking: false,
   },
   {
     legacyPrefix: "claude-opus-4-8",
-    modelId: "claude-opus-4-8",
     supportsFast: true,
     trailingThinking: false,
   },
   {
     legacyPrefix: "claude-sonnet-5",
-    modelId: "claude-sonnet-5",
     supportsFast: false,
     trailingThinking: false,
   },
   {
     legacyPrefix: "claude-4.6-sonnet",
-    modelId: "claude-sonnet-4-6",
     supportsFast: false,
     trailingThinking: true,
   },
 ] as const;
 
 type CursorClaudeOneMillionFamily = (typeof CURSOR_CLAUDE_ONE_MILLION_FAMILIES)[number];
+
+/**
+ * Cursor only routes the flattened legacy slug (e.g. `claude-opus-5-high`); the
+ * canonical base id + {effort, thinking, fast} split is AI Model Not Found
+ * (verified live 2026-10-04). The 1M variant is that same slug plus a lone
+ * `context=1m` parameter.
+ */
+function oneMillionContextRequest(legacyId: string): CursorRequestedModel {
+  return { modelId: legacyId, parameters: [{ id: "context", value: "1m" }] };
+}
 
 function isCursorEffort(value: string): value is (typeof CURSOR_EFFORT_SUFFIXES)[number] {
   return CURSOR_EFFORT_SUFFIXES.some((effort) => effort === value);
@@ -51,16 +56,9 @@ function resolveGptOneMillionContextModel(legacyId: string): CursorRequestedMode
   const match = /^(gpt-5\.6-(?:sol|terra|luna))-(none|low|medium|high|xhigh|max)$/.exec(legacyId);
   if (!match) return null;
 
-  const [, modelId, reasoning] = match;
+  const [, , reasoning] = match;
   if (!CURSOR_GPT_REASONING_LEVELS.some((level) => level === reasoning)) return null;
-  return {
-    modelId,
-    parameters: [
-      { id: "context", value: "1m" },
-      { id: "reasoning", value: reasoning },
-      { id: "fast", value: "false" },
-    ],
-  };
+  return oneMillionContextRequest(legacyId);
 }
 
 function resolveClaudeOneMillionVariant(
@@ -80,14 +78,7 @@ function resolveClaudeOneMillionVariant(
   if (trailingThinking) variant = variant.slice(0, -"-thinking".length);
   if (leadingThinking) variant = variant.slice("thinking-".length);
   if (!isCursorEffort(variant)) return null;
-
-  const parameters = [
-    { id: "thinking", value: String(trailingThinking || leadingThinking) },
-    { id: "context", value: "1m" },
-    { id: "effort", value: variant },
-  ];
-  if (family.supportsFast) parameters.push({ id: "fast", value: String(fast) });
-  return { modelId: family.modelId, parameters };
+  return oneMillionContextRequest(legacyId);
 }
 
 function resolveClaudeOneMillionContextModel(legacyId: string): CursorRequestedModel | null {
@@ -101,8 +92,7 @@ function resolveClaudeOneMillionContextModel(legacyId: string): CursorRequestedM
 /**
  * Cursor reuses each legacy slug for both its default and 1M context variants,
  * so the public catalog adds a terminal `-1m` discriminator. Translate that
- * synthetic id to the canonical wire model plus the complete parameter set
- * reported by Cursor's AvailableModels metadata.
+ * synthetic id back to the legacy slug plus a `context=1m` parameter.
  */
 export function resolveOneMillionContextModel(normalized: string): CursorRequestedModel | null {
   if (!normalized.endsWith(CURSOR_ONE_MILLION_SUFFIX)) return null;
