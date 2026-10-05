@@ -121,6 +121,20 @@ function getResponseErrorStatus(error) {
   return null;
 }
 
+// Codex relays the upstream response headers in a `codex.response.metadata` frame;
+// hand them to the serving-tier learner (open-sse/config/codexServingTier.ts) so
+// WS-only traffic still classifies accounts as fast/slow for selection.
+const SERVING_TIER_NOTE_HOOK = Symbol.for("omniroute.codexServingTier.note");
+function noteServingTierFromMetadata(rawData, connectionId) {
+  if (!connectionId || !rawData.includes('"codex.response.metadata"')) return;
+  const note = globalThis[SERVING_TIER_NOTE_HOOK];
+  if (typeof note !== "function") return;
+  const event = parseJsonRecord(rawData);
+  if (event?.type === "codex.response.metadata" && isRecord(event.headers)) {
+    note(connectionId, event.headers);
+  }
+}
+
 function getTerminalResponseEvent(rawData) {
   const message = parseJsonRecord(rawData);
   if (!message) return null;
@@ -606,6 +620,9 @@ class ResponsesWsSession {
         headers: getAuthHeaders(this.requestUrl, this.requestHeaders),
         message,
         response: responseBody,
+        // Later turns reuse the upstream socket opened for the first turn's account;
+        // pin selection to it so the turn is prepared with matching credentials.
+        pinnedConnectionId: this.upstream ? this.preparedContext?.connectionId || null : null,
       }
     );
 
@@ -676,6 +693,7 @@ class ResponsesWsSession {
         if (terminalEvent) {
           void this.persistHistory(terminalEvent);
         }
+        noteServingTierFromMetadata(data, this.preparedContext?.connectionId);
         this.sendFrame(0x1, Buffer.from(data, "utf8"));
       };
       upstream.onerror = (event) => {

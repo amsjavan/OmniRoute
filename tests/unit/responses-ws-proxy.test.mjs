@@ -416,3 +416,146 @@ test("responses ws proxy closes oversized client messages with 1009", async () =
 
   await close(server);
 });
+
+test("responses ws proxy reports codex.response.metadata headers to the serving-tier hook", async () => {
+  const hookKey = Symbol.for("omniroute.codexServingTier.note");
+  const previousHook = globalThis[hookKey];
+  const notes = [];
+  globalThis[hookKey] = (connectionId, headers) => notes.push({ connectionId, headers });
+
+  const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url || "/", `http://${req.headers.host}`);
+    if (url.pathname === "/api/internal/codex-responses-ws") {
+      const body = JSON.parse((await readRequestBody(req)) || "{}");
+      res.writeHead(200, { "content-type": "application/json" });
+      if (body.action === "authenticate") {
+        res.end(JSON.stringify({ ok: true, authenticated: true, authType: "api_key" }));
+        return;
+      }
+      res.end(
+        JSON.stringify({
+          ok: true,
+          upstreamUrl: "wss://chatgpt.com/backend-api/codex/responses",
+          connectionId: "conn-prolite",
+          headers: {},
+          response: body.response,
+        })
+      );
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  const fakeUpstream = { send() {}, close() {}, onmessage: null, onerror: null, onclose: null };
+  const port = await listen(server);
+  const proxy = createResponsesWsProxy({
+    baseUrl: `http://127.0.0.1:${port}`,
+    bridgeSecret: "bridge-secret",
+    pingIntervalMs: 1000,
+    idleTimeoutMs: 10000,
+    wsFactory: async () => fakeUpstream,
+  });
+  server.on("upgrade", async (req, socket, head) => {
+    const handled = await proxy.handleUpgrade(req, socket, head);
+    if (!handled && !socket.destroyed) socket.destroy();
+  });
+
+  try {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/api/v1/responses?api_key=local-token`);
+    await new Promise((resolve) => ws.addEventListener("open", resolve, { once: true }));
+    ws.send(JSON.stringify({ type: "response.create", model: "gpt-5.5", input: [] }));
+    await waitFor(() => typeof fakeUpstream.onmessage === "function");
+
+    fakeUpstream.onmessage({
+      data: JSON.stringify({
+        type: "codex.response.metadata",
+        headers: { "x-codex-plan-type": "prolite" },
+      }),
+    });
+    fakeUpstream.onmessage({ data: JSON.stringify({ type: "response.created", response: {} }) });
+
+    await waitFor(() => notes.length === 1);
+    assert.deepEqual(notes, [
+      { connectionId: "conn-prolite", headers: { "x-codex-plan-type": "prolite" } },
+    ]);
+    ws.close();
+  } finally {
+    globalThis[hookKey] = previousHook;
+    await close(server);
+  }
+});
+
+test("responses ws proxy pins later turns to the upstream socket's connection", async () => {
+  const prepares = [];
+  const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url || "/", `http://${req.headers.host}`);
+    if (url.pathname === "/api/internal/codex-responses-ws") {
+      const body = JSON.parse((await readRequestBody(req)) || "{}");
+      res.writeHead(200, { "content-type": "application/json" });
+      if (body.action === "authenticate") {
+        res.end(JSON.stringify({ ok: true, authenticated: true, authType: "api_key" }));
+        return;
+      }
+      if (body.action === "prepare") prepares.push(body);
+      res.end(
+        JSON.stringify({
+          ok: true,
+          upstreamUrl: "wss://chatgpt.com/backend-api/codex/responses",
+          connectionId: "conn-first",
+          headers: {},
+          response: body.response,
+        })
+      );
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  const upstreamSends = [];
+  const fakeUpstream = {
+    send(data) {
+      upstreamSends.push(JSON.parse(data));
+    },
+    close() {},
+    onmessage: null,
+    onerror: null,
+    onclose: null,
+  };
+  const port = await listen(server);
+  const proxy = createResponsesWsProxy({
+    baseUrl: `http://127.0.0.1:${port}`,
+    bridgeSecret: "bridge-secret",
+    pingIntervalMs: 1000,
+    idleTimeoutMs: 10000,
+    wsFactory: async () => fakeUpstream,
+  });
+  server.on("upgrade", async (req, socket, head) => {
+    const handled = await proxy.handleUpgrade(req, socket, head);
+    if (!handled && !socket.destroyed) socket.destroy();
+  });
+
+  try {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/api/v1/responses?api_key=local-token`);
+    await new Promise((resolve) => ws.addEventListener("open", resolve, { once: true }));
+    ws.send(JSON.stringify({ type: "response.create", model: "gpt-5.5", input: [] }));
+    await waitFor(() => upstreamSends.length === 1);
+    ws.send(
+      JSON.stringify({
+        type: "response.create",
+        model: "gpt-5.5",
+        previous_response_id: "r1",
+        input: [],
+      })
+    );
+    await waitFor(() => upstreamSends.length === 2);
+
+    assert.equal(prepares.length, 2);
+    assert.equal(prepares[0].pinnedConnectionId, null);
+    assert.equal(prepares[1].pinnedConnectionId, "conn-first");
+    ws.close();
+  } finally {
+    await close(server);
+  }
+});

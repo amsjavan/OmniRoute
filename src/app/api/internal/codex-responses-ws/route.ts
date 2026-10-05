@@ -7,6 +7,10 @@ import { authorizeWebSocketHandshake, extractWsTokenFromRequest } from "@/lib/ws
 import { getModelInfo } from "@/sse/services/model";
 import { resolveCcDiscoveryAliasStrip } from "@/lib/ccDiscoveryAliasResolve";
 import { getProviderCredentialsWithQuotaPreflight } from "@/sse/services/auth";
+import {
+  extractSessionAffinityKey,
+  scopeSessionAffinityKey,
+} from "@/sse/services/sessionAffinityPin";
 import { enforceApiKeyPolicy } from "@/shared/utils/apiKeyPolicy";
 import { checkAndRefreshToken } from "@/sse/services/tokenRefresh";
 import { resolveCodexWsModelInfo } from "./modelResolution";
@@ -56,6 +60,9 @@ const bridgePayloadSchema = z
     requestUrl: z.string().optional(),
     headers: z.record(z.string(), z.unknown()).optional(),
     response: z.record(z.string(), z.unknown()).optional(),
+    // Account that owns the already-open upstream socket (set by the WS proxy on
+    // turns after the first) so every turn is prepared for the same account.
+    pinnedConnectionId: z.string().nullable().optional(),
   })
   .passthrough();
 
@@ -370,13 +377,20 @@ async function prepareReasoningRoute(
 async function resolveCodexCredentials(
   provider: string,
   model: string,
-  allowedConnections: string[] | null
+  allowedConnections: string[] | null,
+  selection: { sessionKey: string | null; pinnedConnectionId: string | null }
 ) {
   const credentials = await getProviderCredentialsWithQuotaPreflight(
     provider,
     null,
     allowedConnections,
-    model
+    model,
+    {
+      // Same session key as the HTTP path (prompt_cache_key for Codex), so session
+      // affinity keeps a conversation on one account across sockets and transports.
+      sessionKey: selection.sessionKey,
+      forcedConnectionId: selection.pinnedConnectionId,
+    }
   );
   if (!credentials || "allRateLimited" in credentials) {
     return {
@@ -450,6 +464,10 @@ async function resolveCodexRequestContext(body: JsonRecord) {
     authRequest,
     apiKey,
     responseBody,
+    pinnedConnectionId:
+      typeof body.pinnedConnectionId === "string" && body.pinnedConnectionId.trim()
+        ? body.pinnedConnectionId.trim()
+        : null,
     requestedModel,
     clientHeaders: Object.fromEntries(authRequest.headers.entries()),
     metadata,
@@ -478,7 +496,14 @@ async function resolveCodexUpstreamContext(
   const credentialResult = await resolveCodexCredentials(
     provider,
     model,
-    context.allowedConnections
+    context.allowedConnections,
+    {
+      sessionKey: scopeSessionAffinityKey(
+        extractSessionAffinityKey(context.responseBody, context.authRequest.headers),
+        context.metadata?.id ?? null
+      ),
+      pinnedConnectionId: context.pinnedConnectionId,
+    }
   );
   if (credentialResult.error) return credentialResult;
   let reasoningDecision = context.decision;
@@ -565,9 +590,15 @@ async function prepare(body: JsonRecord) {
     context.clientHeaders,
     responseBodyWithMemory
   );
+  // The WS bridge only carries native Responses frames from Codex clients, so mirror the
+  // HTTP path (shouldUseNativeCodexPassthrough: provider codex + /responses): without the
+  // passthrough stamp the executor drops custom tools (Codex's `exec` shell tool) and strips
+  // `generate`, turning the client's generate=false prewarm into a full generation.
   const transformed = (await executor.transformRequest(
     model,
-    responseBodyWithMemory,
+    provider === "codex"
+      ? { ...responseBodyWithMemory, _nativeCodexPassthrough: true }
+      : responseBodyWithMemory,
     true,
     credentialsWithFingerprint
   )) as JsonRecord;
