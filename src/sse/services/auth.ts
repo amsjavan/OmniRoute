@@ -1971,10 +1971,15 @@ export async function getProviderCredentials(
       connection = affinityConnection;
       if (options.lease) commitSelectionSideEffects = affinityPlan?.commit;
       else syncSessionAffinityRuntimeFields(connectionsRaw, connection);
-    } else if (options.sessionKey) {
+    } else if (options.sessionKey && sessionAffinityTtlMs > 0) {
       log.info(
         "AUTH",
         `session_key=${formatSessionKeyForLog(options.sessionKey)} has no available affinity target`
+      );
+    } else if (options.sessionKey) {
+      log.debug(
+        "AUTH",
+        `session_key=${formatSessionKeyForLog(options.sessionKey)} affinity disabled (ttl=0)`
       );
     }
 

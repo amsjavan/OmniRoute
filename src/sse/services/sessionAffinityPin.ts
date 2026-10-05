@@ -148,7 +148,11 @@ function getFirstInputText(body: unknown): string | null {
   if (record.input !== undefined) {
     if (typeof record.input === "string") return extractBoundedNonEmptyText(record.input);
     if (Array.isArray(record.input)) {
-      for (const item of record.input) {
+      // Prefer the first user turn: leading developer/system/env-context items are
+      // often identical across unrelated sessions and would collapse them onto one pin.
+      const userItem = record.input.find((item) => asRecord(item).role === "user");
+      const candidates = userItem ? [userItem] : record.input;
+      for (const item of candidates) {
         const itemRecord = asRecord(item);
         const text = extractTextForSessionHash(itemRecord.content ?? item);
         if (text) return text;
@@ -219,6 +223,20 @@ export function extractSessionAffinityKey(
   const inputText = getFirstInputText(body);
   if (!inputText) return null;
   return `input:sha256:${createHash("sha256").update(inputText).digest("hex")}`;
+}
+
+/**
+ * Scopes a content-derived (`input:`) affinity key by API key id, so unrelated
+ * clients that happen to send identical first-turn text do not share a pin.
+ * Explicit session identifiers (header / metadata / prompt_cache_key) are
+ * returned unchanged.
+ */
+export function scopeSessionAffinityKey(
+  sessionKey: string | null,
+  apiKeyId: string | null | undefined
+): string | null {
+  if (!sessionKey || !apiKeyId || !sessionKey.startsWith("input:")) return sessionKey;
+  return `key:${apiKeyId}:${sessionKey}`;
 }
 
 /** Minimal structural view of a provider connection this module reads. */
