@@ -118,6 +118,7 @@ import {
   toCodexBaseQuotaWindowName,
   toCodexScopedQuotaWindowName,
 } from "@omniroute/open-sse/config/codexQuotaScopes.ts";
+import { preferCodexFastTier } from "@omniroute/open-sse/config/codexServingTier.ts";
 import { formatQuotaUsageReason } from "@omniroute/open-sse/services/quotaWindowLabel.ts";
 import {
   getCodexChildCooldown,
@@ -1920,7 +1921,11 @@ export async function getProviderCredentials(
         : null;
     }
 
-    const orderedConnections = [...leasePolicy.connections].sort((a, b) => {
+    // Codex: keep slow-tier accounts (prolite / reserve capacity, ~3x slower
+    // upstream) as fallback only while a fast account is available.
+    const tierPool =
+      provider === "codex" ? preferCodexFastTier(leasePolicy.connections) : leasePolicy.connections;
+    const orderedConnections = [...tierPool].sort((a, b) => {
       if (a.authType !== "oauth" || b.authType !== "oauth") return 0;
       const priorityDelta = (a.priority || 999) - (b.priority || 999);
       if (priorityDelta !== 0) return priorityDelta;

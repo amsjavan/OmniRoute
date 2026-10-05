@@ -67,6 +67,7 @@ import {
   noteCodexTurnStateProvenance,
   readCodexTurnStateHeader,
 } from "../config/codexTurnState.ts";
+import { noteCodexServingTier } from "../config/codexServingTier.ts";
 import { trackDevice, extractIpFromHeaders } from "../services/deviceTracker.ts";
 import { getCombosCached } from "./chatCore/comboContextCache.ts";
 export { clearCombosCache, clearUpstreamProxyConfigCache } from "./chatCore/comboContextCache.ts";
@@ -3470,6 +3471,12 @@ export async function handleChatCore({
             rawResult._executionCredentials?.connectionId ?? credentials?.connectionId
           );
         }
+        if (provider === "codex") {
+          noteCodexServingTier(
+            rawResult._executionCredentials?.connectionId ?? credentials?.connectionId,
+            responseHeaders
+          );
+        }
         const contentType = (responseHeaders.get("content-type") || "").toLowerCase();
         const payload = await readNonStreamingResponseBody(
           rawResult.response,
@@ -5735,6 +5742,10 @@ export async function handleChatCore({
       credentials?.connectionId
     );
   }
+  // Learn this account's serving tier (plan / reserve status) so selection can
+  // prefer fast accounts — see codexServingTier.ts.
+  if (provider === "codex")
+    noteCodexServingTier(credentials?.connectionId, providerResponse.headers);
 
   // Create transform stream with logger for streaming response
   let transformStream;
