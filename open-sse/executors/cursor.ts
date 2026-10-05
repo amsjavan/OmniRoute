@@ -19,6 +19,7 @@ import {
   decodeExecServerEvent,
   decodeKvServerEvent,
   encodeRequestContextResponse,
+  encodeExecMcpStateResult,
   encodeKvGetBlobResult,
   encodeKvSetBlobResult,
   encodeExecReadRejected,
@@ -572,6 +573,24 @@ export function processFrame(
           opts.h2Req.write(encodeRequestContextResponse(event.execMsgId, event.execId));
         } catch (e) {
           console.debug(`[CURSOR] request_context ack write failed:`, e);
+        }
+      }
+    } else if (event.kind === "exec_mcp_state") {
+      // Current Cursor builds look up the MCP servers' tool state before invoking a
+      // tool ("I'll check the tool schema..."). Without a reply the turn stalls
+      // forever on heartbeats, so answer with the tools declared for this run.
+      if (opts.h2Req) {
+        try {
+          opts.h2Req.write(
+            encodeExecMcpStateResult(
+              event.execMsgId,
+              event.execId,
+              event.serverIdentifiers,
+              opts.mcpTools ?? []
+            )
+          );
+        } catch (e) {
+          console.debug(`[CURSOR] mcp_state result write failed:`, e);
         }
       }
     } else if (event.kind === "exec_mcp") {

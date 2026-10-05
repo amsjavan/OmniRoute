@@ -142,6 +142,7 @@ const ECM_MCP_RESULT = 11;
 const ECM_BACKGROUND_SHELL_SPAWN_RES = 16;
 const ECM_FETCH_RESULT = 20;
 const ECM_WRITE_SHELL_STDIN_RESULT = 23;
+const ECM_MCP_STATE_RESULT = 36; // ExecClientMessage.mcp_state_exec_result
 
 // ExecServerMessage variant tags (used by exec router in Phase 2)
 const ESM_SHELL_ARGS = 2;
@@ -156,6 +157,22 @@ const ESM_SHELL_STREAM_ARGS = 14;
 const ESM_BACKGROUND_SHELL_SPAWN = 16;
 const ESM_FETCH_ARGS = 20;
 const ESM_WRITE_SHELL_STDIN_ARGS = 23;
+// McpStateExecArgs { server_identifiers (1, repeated string), kick_only (2, bool) }. Cursor
+// (agent CLI 2026.10) asks the client for its MCP servers' current tool state before calling
+// a tool; an unanswered request stalls the turn indefinitely (heartbeats only).
+const ESM_MCP_STATE_ARGS = 36;
+// ExecServerMessage fields that are NOT the args oneof. span_context (19) is sent before the
+// args variant on current Cursor builds, so it must not be mistaken for the variant.
+const ESM_NON_VARIANT_FIELDS = new Set([
+  15 /* exec_id */, 19 /* span_context */, 57 /* machine_id */,
+]);
+// McpStateExecResult.success (1) → McpStateSuccess.servers (1) → McpStateServer
+const MSR_SUCCESS = 1;
+const MSS_SERVERS = 1;
+const MSV_SERVER_NAME = 1;
+const MSV_SERVER_IDENTIFIER = 2;
+const MSV_TOOLS = 5;
+const MSA_SERVER_IDENTIFIERS = 1;
 
 // Args sub-message field numbers (path and shell variants)
 const ARG_PATH = 1; // ReadArgs.path / WriteArgs.path / DeleteArgs.path / LsArgs.path
@@ -858,6 +875,7 @@ export type ExecServerEvent =
     }
   | { kind: "exec_fetch"; execMsgId: number; execId: string; url: string }
   | { kind: "exec_write_shell_stdin"; execMsgId: number; execId: string }
+  | { kind: "exec_mcp_state"; execMsgId: number; execId: string; serverIdentifiers: string[] }
   | {
       kind: "exec_mcp";
       execMsgId: number;
@@ -984,6 +1002,14 @@ const EXEC_EVENT_DECODERS: Partial<Record<number, ExecEventDecoder>> = {
     execId,
   }),
   [ESM_MCP_ARGS]: decodeMcpExecEvent,
+  [ESM_MCP_STATE_ARGS]: ({ execMsgId, execId, variantBytes }) => {
+    const serverIdentifiers: string[] = [];
+    for (const field of decodeFields(variantBytes)) {
+      if (field.fieldNumber !== MSA_SERVER_IDENTIFIERS || field.wireType !== WT_LEN) continue;
+      serverIdentifiers.push(field.bytes.toString("utf8"));
+    }
+    return { kind: "exec_mcp_state", execMsgId, execId, serverIdentifiers };
+  },
 };
 
 function decodeExecEventContext(
@@ -995,7 +1021,7 @@ function decodeExecEventContext(
   const fields = decodeFields(top.bytes);
   const idField = findField(fields, ESM_ID);
   const variant = fields.find(
-    (field) => field.wireType === WT_LEN && field.fieldNumber !== ESM_EXEC_ID
+    (field) => field.wireType === WT_LEN && !ESM_NON_VARIANT_FIELDS.has(field.fieldNumber)
   );
   if (!variant || variant.wireType !== WT_LEN) return null;
   return {
@@ -1204,6 +1230,31 @@ export function encodeExecMcpResult(
   if (isError) successFields.push(encodeBoolField(MCS_IS_ERROR, true));
   const success = encodeMessage(MCR_SUCCESS, successFields);
   return wrapExecClientMessage(execMsgId, execId, ECM_MCP_RESULT, success);
+}
+
+/**
+ * Reply to McpStateExecArgs with the tools OmniRoute declared for this run, one
+ * McpStateServer per requested server identifier (OmniRoute's tools all carry the
+ * "omniroute" provider identifier).
+ */
+export function encodeExecMcpStateResult(
+  execMsgId: number,
+  execId: string,
+  serverIdentifiers: string[],
+  tools: McpToolDefinition[]
+): Buffer {
+  const identifiers = serverIdentifiers.length > 0 ? serverIdentifiers : ["omniroute"];
+  const servers = identifiers.map((identifier) =>
+    encodeMessage(MSS_SERVERS, [
+      encodeString(MSV_SERVER_NAME, identifier),
+      encodeString(MSV_SERVER_IDENTIFIER, identifier),
+      ...tools
+        .filter((tool) => (tool.providerIdentifier || "omniroute") === identifier)
+        .map((tool) => encodeMessage(MSV_TOOLS, [encodeMcpToolDefinitionBody(tool)])),
+    ])
+  );
+  const success = encodeMessage(MSR_SUCCESS, servers);
+  return wrapExecClientMessage(execMsgId, execId, ECM_MCP_STATE_RESULT, success);
 }
 
 export function encodeExecMcpError(execMsgId: number, execId: string, errMsg: string): Buffer {
