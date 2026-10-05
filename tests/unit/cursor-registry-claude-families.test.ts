@@ -79,7 +79,7 @@ test("cursor registry keeps thinking, effort/reasoning and fast variants selecta
     "claude-opus-5-thinking-xhigh-fast",
     "claude-opus-4-8-thinking-max-fast",
     "claude-sonnet-5-thinking-max",
-    "claude-4.6-sonnet-max-thinking",
+    "claude-4.6-sonnet-medium-thinking",
     "claude-4.5-haiku-thinking",
     "gpt-5.6-sol-max-fast",
     "gpt-5.6-terra-max-fast",
@@ -95,7 +95,7 @@ test("cursor registry keeps thinking, effort/reasoning and fast variants selecta
 test("cursor registry exposes every supported 1M context variant", () => {
   const ids = cursorProvider.models.map((model) => model.id);
   const oneMillionVariants = cursorProvider.models.filter((model) => model.id.endsWith("-1m"));
-  assert.equal(oneMillionVariants.length, 77);
+  assert.equal(oneMillionVariants.length, 71);
   for (const variant of oneMillionVariants) {
     assert.match(variant.name, /\b1M\b/);
     assert.equal(variant.contextLength, 1_000_000);
@@ -107,7 +107,7 @@ test("cursor registry exposes every supported 1M context variant", () => {
     "claude-opus-5-thinking-max-fast-1m",
     "claude-opus-4-8-thinking-max-fast-1m",
     "claude-sonnet-5-thinking-max-1m",
-    "claude-4.6-sonnet-max-thinking-1m",
+    "claude-4.6-sonnet-medium-thinking-1m",
     "gpt-5.6-sol-max-1m",
     "gpt-5.6-terra-max-1m",
     "gpt-5.6-luna-max-1m",
@@ -132,7 +132,7 @@ test("cursor registry records the default context for context-selectable familie
   assert.equal(models.get("claude-opus-5-thinking-max")?.contextLength, 300_000);
   assert.equal(models.get("claude-opus-4-8-thinking-max")?.contextLength, 300_000);
   assert.equal(models.get("claude-sonnet-5-thinking-max")?.contextLength, 300_000);
-  assert.equal(models.get("claude-4.6-sonnet-max-thinking")?.contextLength, 200_000);
+  assert.equal(models.get("claude-4.6-sonnet-medium-thinking")?.contextLength, 200_000);
   assert.equal(models.get("gpt-5.6-sol-max")?.contextLength, 272_000);
   assert.equal(models.get("gpt-5.6-terra-max")?.contextLength, 272_000);
   assert.equal(models.get("gpt-5.6-luna-max")?.contextLength, 272_000);
@@ -148,12 +148,12 @@ test("cursor registry orders each model family by quality, thinking and speed", 
     ["claude-opus-5-thinking-high-fast", "claude-opus-5-high-fast", "claude-opus-5-low"],
     ["claude-opus-4-8-thinking-max-fast", "claude-opus-4-8-max-fast", "claude-opus-4-8-low"],
     ["claude-sonnet-5-thinking-max", "claude-sonnet-5-max", "claude-sonnet-5-low"],
-    ["claude-4.6-sonnet-max-thinking", "claude-4.6-sonnet-max", "claude-4.6-sonnet-low"],
+    ["claude-4.6-sonnet-medium-thinking", "claude-4.6-sonnet-medium"],
     ["claude-4.5-haiku-thinking", "claude-4.5-haiku"],
     ["gpt-5.6-sol-max-fast", "gpt-5.6-sol-max", "gpt-5.6-sol-none"],
     ["gpt-5.6-terra-max-fast", "gpt-5.6-terra-max", "gpt-5.6-terra-none"],
     ["gpt-5.6-luna-max-fast", "gpt-5.6-luna-max", "gpt-5.6-luna-none"],
-    ["gemini-3.7-flash-high", "gemini-3.7-flash-low"],
+    ["gemini-3.8-flash", "gemini-3.7-flash-high", "gemini-3.7-flash-low"],
     ["kimi-k3-max", "kimi-k3-low"],
     ["glm-5.2-max", "glm-5.2-high"],
   ]) {
@@ -211,5 +211,17 @@ test("cursor registry keeps Fable 5.1 capability metadata on every selectable va
   );
   for (const variant of variants) {
     assert.equal(variant.maxOutputTokens, 128_000);
+  }
+});
+
+test("cursor registry only lists Sonnet 4.6 efforts Cursor actually serves", () => {
+  // AvailableModels publishes medium only; low/high/max are "AI Model Not Found"
+  // upstream, which OmniRoute counts as a 429 and trips the cursor breaker.
+  const ids = new Set(cursorProvider.models.map((model) => model.id));
+  for (const effort of ["low", "high", "max"]) {
+    for (const id of [`claude-4.6-sonnet-${effort}`, `claude-4.6-sonnet-${effort}-thinking`]) {
+      assert.equal(ids.has(id), false, `unserved Cursor model listed: ${id}`);
+      assert.equal(ids.has(`${id}-1m`), false, `unserved Cursor model listed: ${id}-1m`);
+    }
   }
 });

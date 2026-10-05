@@ -180,14 +180,10 @@ export const cursorProvider: RegistryEntry = {
     ),
     ...withOneMillionContext(
       [
-        { id: "claude-4.6-sonnet-max-thinking", name: "Claude Sonnet 4.6 Max Thinking" },
-        { id: "claude-4.6-sonnet-max", name: "Claude Sonnet 4.6 Max" },
-        { id: "claude-4.6-sonnet-high-thinking", name: "Claude Sonnet 4.6 High Thinking" },
-        { id: "claude-4.6-sonnet-high", name: "Claude Sonnet 4.6 High" },
+        // Cursor AvailableModels only publishes the medium effort for Sonnet 4.6;
+        // low/high/max answer "AI Model Not Found" (counted as a provider 429).
         { id: "claude-4.6-sonnet-medium-thinking", name: "Claude Sonnet 4.6 Medium Thinking" },
         { id: "claude-4.6-sonnet-medium", name: "Claude Sonnet 4.6 Medium" },
-        { id: "claude-4.6-sonnet-low-thinking", name: "Claude Sonnet 4.6 Low Thinking" },
-        { id: "claude-4.6-sonnet-low", name: "Claude Sonnet 4.6 Low" },
       ],
       "Claude Sonnet 4.6",
       200_000,
@@ -255,6 +251,7 @@ export const cursorProvider: RegistryEntry = {
       "gpt-5.6-luna",
       (model) => !model.id.endsWith("-fast")
     ),
+    { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash" },
     { id: "gemini-3.7-flash-high", name: "Gemini 3.7 Flash High" },
     { id: "gemini-3.7-flash-medium", name: "Gemini 3.7 Flash Medium" },
     { id: "gemini-3.7-flash-low", name: "Gemini 3.7 Flash Low" },
